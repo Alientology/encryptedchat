@@ -15,42 +15,36 @@ clients.find = function(addrss){
 serverKeys.generateKeys();
 var server = net.createServer(function(s){ 
     var client = {};
-    client.state = protocol.stateEnum.KEY_EXCHANGE;
-    client.hasServerPublicKey = false;
 
-    console.log("Got connction");
-    client.address = s.remoteAddress;
-    console.log(clients.find(s.remoteAddress));
-    console.log("Sending server public key");
+    client.state = protocol.stateEnum.KEY_EXCHANGE;
     s.write(serverKeys.getPublicKey());
-    console.log(serverKeys.getPublicKey());
-    console.log("Length: " + serverKeys.getPublicKey().length);
+    
+    console.log("Connection from " + s.remoteAddress);
+    
     s.on("data",function(d){
-	console.log("Socket emitted data.");	
 	switch(client.state){
 	case protocol.stateEnum.KEY_EXCHANGE:
-	    console.log("Reading buffer as key exchange");
 	    client.publicKey = d;
-	    console.log("Got client public key:");
-	    console.log(client.publicKey);
 	    client.privateKey = serverKeys.computeSecret(client.publicKey,null);
-	    console.log("Computed private key");
-	    console.log(client.privateKey);
+	    console.log("Client public key length: " + client.publicKey.length);
+	    console.log("Shared private key length: " + client.privateKey.length);
+	    
 	    /* Should do some verification on that */
 	    client.state = protocol.stateEnum.READY;
+	    console.log("Key exchange completed");
 	    break;
 	    
 	case protocol.stateEnum.READY:
-	    console.log("Attempting to decrypt");
-	    console.log(d);
+	    console.log("Attemptning to decrypt");
+	    console.log("Buffer length: " + d);
 	    console.log("..");
-	    var decipher = crypto.createDecipher("blowfish",client.privateKey);
-	    decipher.update(d);
-	    var message = decipher.final("utf8");
-			    
-	
-	    console.log(message);
-	    //Here we should have all the keys needed to start "secure" communications
+	    console.log(d);
+	    var iv = new Buffer(16);
+	    iv.fill(0);
+	    //console.log(client.privateKey.toString("base64"));
+	    var decipher = crypto.createDecipheriv("aes256",client.privateKey.slice(0,32),iv);
+	    decipher.end(d);
+	    console.log(decipher.read().toString());
 	    break;
 	    
 	default:
