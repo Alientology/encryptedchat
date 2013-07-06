@@ -4,54 +4,54 @@ var protocol = require("./protocol");
 var serverKeys = crypto.getDiffieHellman("modp5");
 
 var clients = [];
-
-clients.find = function(addrss){
-    for(var i=0; this.length > i; i++){
-	return i;
-    }
-    return false;
-};
+var KEY_LENGTH = 192
 
 serverKeys.generateKeys();
-var server = net.createServer(function(s){ 
-    var client = {};
 
-    client.state = protocol.stateEnum.KEY_EXCHANGE;
-    s.write(serverKeys.getPublicKey());
+function exchangeKeys(client,data){
+    client.publicKey = data
+    if ( client.publicKey.length != KEY_LENGTH ) {
+	console.log("Got public key with bad length : " + client.publicKey.length)
+	console.log("From : " + client.s.remoteAddress);
+    }
+    client.privateKey = serverKeys.computeSecret(client.publicKey,null)
+    client.state = protocol.stateEnum.READY
+    clients.push(client)
+}
+
+function relay(client,data){
+    var iv = new Buffer(16)
+    iv.fill(0)
+
+    var decipher = crypto.createDecipheriv("aes256",client.privateKey.slice(0,32),iv);
     
-    console.log("Connection from " + s.remoteAddress);
+    decipher.end(data)
     
-    s.on("data",function(d){
+    console.log(decipher.read().toString())
+    
+}
+
+function serve(s){
+    var client = {}
+    console.log("Connection from : " + s.remoteAddress)
+    
+    client.state = protocol.stateEnum.KEY_EXCHANGE
+    
+    clients.s = s
+    
+    s.write(serverKeys.getPublicKey())
+       
+    s.on("data",function(data){
 	switch(client.state){
 	case protocol.stateEnum.KEY_EXCHANGE:
-	    client.publicKey = d;
-	    client.privateKey = serverKeys.computeSecret(client.publicKey,null);
-	    console.log("Client public key length: " + client.publicKey.length);
-	    console.log("Shared private key length: " + client.privateKey.length);
-	    
-	    /* Should do some verification on that */
-	    client.state = protocol.stateEnum.READY;
-	    console.log("Key exchange completed");
-	    break;
-	    
+	    exchangeKeys(client,data)
+	    break
 	case protocol.stateEnum.READY:
-	    console.log("Attemptning to decrypt");
-	    console.log("Buffer length: " + d);
-	    console.log("..");
-	    console.log(d);
-	    var iv = new Buffer(16);
-	    iv.fill(0);
-	    //console.log(client.privateKey.toString("base64"));
-	    var decipher = crypto.createDecipheriv("aes256",client.privateKey.slice(0,32),iv);
-	    decipher.end(d);
-	    console.log(decipher.read().toString());
-	    break;
-	    
-	default:
-	    break;
+	    relay(client,data);
+	    break
 	}
-	
-
     });
-}).listen(1366);
+}
+
+var server = net.createServer(serve).listen(1366);
 

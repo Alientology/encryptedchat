@@ -10,9 +10,7 @@ client.keys = crypto.getDiffieHellman("modp5");
 client.keys.generateKeys();
 client.state = protocol.stateEnum.KEY_EXCHANGE;
 
-var connection = net.connect({port : 1366},function(s){
-
-});
+var connection = net.connect({port : 1366});
 
 connection.on("data",function(d){
     switch(client.state){
@@ -29,6 +27,15 @@ connection.on("data",function(d){
 	console.log("Key exchange completed");
 	
 	break;
+	
+	case protocol.stateEnum.READY:
+	var iv = new Buffer(16);
+	iv.fill(0);
+	var decipher = crypto.createDecipheriv("aes256",client.privateKey.slice(0,32),iv);
+	decipher.end(d);
+	console.log(decipher.read().toString());
+	
+	break;
     };
 });
 
@@ -41,11 +48,12 @@ rl.on("line",function(l){
     if( client.state == protocol.stateEnum.READY){
 	var iv = new Buffer(16);
 	iv.fill(0);
-	console.log(client.privateKey.toString("base64"));
+	console.log(client.privateKey);
 	var cipher = crypto.createCipheriv("aes256",client.privateKey.slice(0,32),iv);
 	cipher.end(l);
-	connection.write(cipher.read());
-//	connection.write(message);    
+	var m = cipher.read()
+	console.log(m)
+	connection.write(m)
     }
     
 });
