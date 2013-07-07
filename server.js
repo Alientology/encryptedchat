@@ -13,6 +13,7 @@ function exchangeKeys(client,data){
     if ( client.publicKey.length != KEY_LENGTH ) {
 	console.log("Got public key with bad length : " + client.publicKey.length)
 	console.log("From : " + client.s.remoteAddress);
+	
     }
     client.privateKey = serverKeys.computeSecret(client.publicKey,null)
     client.state = protocol.stateEnum.READY
