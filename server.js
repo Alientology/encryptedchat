@@ -1,6 +1,7 @@
 var net = require("net");
 var crypto = require("crypto");
 var protocol = require("./protocol");
+var eclib = require("./eclib");
 var serverKeys = crypto.getDiffieHellman("modp5");
 /*
   So ideal setup would perhaps be chennels as event emitters, to which clients subscribes
@@ -11,16 +12,7 @@ var channels = {}
 var KEY_LENGTH = 192
 
 serverKeys.generateKeys();
-function weakCipher(message,key){
-    /* This is horrendus */
-    var iv = new Buffer(16)
-    iv.fill(0) 
-    
-    var cipher = crypto.createCipheriv("aes256",key,iv)
-    cipher.end(message)
-    return cipher.read()
-    
-}
+
 function exchangeKeys(client,data){
     client.publicKey = data
     if ( client.publicKey.length != KEY_LENGTH ) {
@@ -28,37 +20,24 @@ function exchangeKeys(client,data){
 	console.log("From : " + client.s.remoteAddress);
 	
     }
+    console.log("Handshake OK")
     client.sharedSecret = serverKeys.computeSecret(client.publicKey,null)
     client.state = protocol.stateEnum.READY
     clients.push(client)
 }
 
-function arrayContains(array,needle){
-    for(var i = 0; array.length > i; i++){
-	if( array[i] == needle ) {
-	    return true
-	}
-    }
-    return false
-}
 function relay(client,data){
-    var iv = new Buffer(16)
-    iv.fill(0)
-
-    var decipher = crypto.createDecipheriv("aes256",client.sharedSecret.slice(0,32),iv);
+    console.log("relaying")
+    var message = eclib.weakDecipher(data,client.sharedSecret.slice(0,32))
     
-    decipher.end(data)
-    
-    var message = JSON.parse(decipher.read().toString())
-
+    console.log(message.toString())
     if( typeof channels[message.channel] == "undefined"){
-	
+	console.log("Creating new channel")
 	channels[message.channel] = {
-	    secret : client.sharedSecret.slice(0,32),
+	    secret : crypto.randomBytes(32),
 	    clientSockets : new Array()
-	    
 	}
-    
+	
 	channels[message.channel].clientSockets.push(client.s)
 	
 	var returnMessage = {
@@ -66,21 +45,21 @@ function relay(client,data){
 	    key : channels[message.channel].secret
 	}
 
-	var encryptedMessage = weakCipher(JSON.stringify(message),client.sharedSecret.slice(0,32))
+	var encryptedMessage = eclib.weakCipher(JSON.stringify(message),client.sharedSecret.slice(0,32))
 	client.s.write(encryptedMessage)
 
     }else{
 	var returnMessage = {
 	    channel : message.channel,
-	    data : message.data
+	    data : eclib.weakCipher(channel[message.channel].key,message.data)
 	}
+	
 	if(!arrayContains(channels[message.channel].clientSockets,client.s)){
 	    console.log("New member")
 	    channels[message.channel].clientSockets.push(client.s)
 	    returnMessage.key = channels[message.channel].secret
-
+	    
 	    var encryptedMessage = weakCipher(JSON.stringify(returnMessage),client.sharedSecret.slice(0,32))
-	    console.log(encryptedMessage)
 	    client.s.write(encryptedMessage)
 	    return
 	}
