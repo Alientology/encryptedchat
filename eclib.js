@@ -11,7 +11,7 @@ exports.weakCipher = function(message,key){
 exports.weakDecipher = function(message,key){
     var iv = new Buffer(16)
     iv.fill(0)
-    var decipher = crypto.createCipheriv("aes256",key,iv)
+    var decipher = crypto.createDecipheriv("aes256",key,iv)
     decipher.end(message)
     return decipher.read()
 }

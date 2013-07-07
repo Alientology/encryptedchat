@@ -28,48 +28,50 @@ function exchangeKeys(client,data){
 
 function relay(client,data){
     console.log("relaying")
-    var message = eclib.weakDecipher(data,client.sharedSecret.slice(0,32))
-    
-    console.log(message.toString())
+    console.log(data)
+    var message = JSON.parse(eclib.weakDecipher(data,client.sharedSecret.slice(0,32)).toString())
+    var returnMessage = {}
+    returnMessage.channel = message.channel
+
     if( typeof channels[message.channel] == "undefined"){
 	console.log("Creating new channel")
 	channels[message.channel] = {
 	    secret : crypto.randomBytes(32),
 	    clientSockets : new Array()
 	}
-	
+	console.log(message.channel)
 	channels[message.channel].clientSockets.push(client.s)
-	
-	var returnMessage = {
-	    channel : message.channel,
-	    key : channels[message.channel].secret
-	}
 
-	var encryptedMessage = eclib.weakCipher(JSON.stringify(message),client.sharedSecret.slice(0,32))
+	returnMessage.key = channels[message.channel].secret
+
+	console.log(returnMessage)
+	var encryptedMessage = eclib.weakCipher(JSON.stringify(returnMessage),client.sharedSecret.slice(0,32))
 	client.s.write(encryptedMessage)
 
     }else{
-	var returnMessage = {
-	    channel : message.channel,
-	    data : eclib.weakCipher(channel[message.channel].key,message.data)
-	}
 	
-	if(!arrayContains(channels[message.channel].clientSockets,client.s)){
+	returnMessage.channel = message.channel
+	returnMessage.data=eclib.weakCipher(message.data,channels[message.channel].secret)
+	returnMessage.key = ""
+	
+	if(!eclib.arrayContains(channels[message.channel].clientSockets,client.s)){
 	    console.log("New member")
 	    channels[message.channel].clientSockets.push(client.s)
 	    returnMessage.key = channels[message.channel].secret
-	    
-	    var encryptedMessage = weakCipher(JSON.stringify(returnMessage),client.sharedSecret.slice(0,32))
+
+
+	    var encryptedMessage = eclib.weakCipher(JSON.stringify(returnMessage),client.sharedSecret.slice(0,32))
+	    console.log(encryptedMessage)
 	    client.s.write(encryptedMessage)
 	    return
 	}
 
 	for( i in channels[message.channel].clientSockets ) {
-	    if(!arrayContains(channels[message.channel].clientSockets,client)){
+	    if(!eclib.arrayContains(channels[message.channel].clientSockets,client)){
 		channels[message.channel].clientSockets.push(client.s)
 		returnMessage.key = channels[message.channel].secret
 	    }
-	    var encryptedMessage = weakCipher(JSON.stringify(returnMessage),channels[message.channel].secret)
+	    var encryptedMessage = eclib.weakCipher(JSON.stringify(returnMessage),client.sharedSecret.slice(0,32))
 	    console.log(encryptedMessage)
 	    channels[message.channel].clientSockets[i].write(encryptedMessage)
 	}

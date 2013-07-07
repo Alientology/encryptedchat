@@ -32,7 +32,7 @@ connection.on("data",function(d){
 	break;
 	
     case protocol.stateEnum.JOINING_CHANNEL:
-	var message = JSON.parse(eclib.weakDecipher(d,client.SharedSecret.slice(0,32)))
+	var message = JSON.parse(eclib.weakDecipher(d,client.sharedSecret.slice(0,32)).toString())
 	console.log(message)
 	channels[message.channel].secret = message.key
 	
@@ -41,15 +41,12 @@ connection.on("data",function(d){
 	break;
 	
     case protocol.stateEnum.READY:
-	console.log(channels)
-	var iv = new Buffer(16)
-	iv.fill(0)
-	console.log(d)
-	var decipher = crypto.createDecipheriv("aes256",channels[channel].secret,iv)
-	decipher.end(d)
-	var message = JSON.parse(decipher.read().toString())
+	var message = JSON.parse(eclib.weakDecipher(d,client.sharedSecret.slice(0,32)).toString())
 	console.log(message)
-	channels[message.channel] = {}
+
+	console.log(channels[channel].secret)
+	var channelMessage = eclib.weakDecipher(new Buffer(message.data),channels[channel].secret)
+	console.log(channel)
     }
 })
 
@@ -67,11 +64,23 @@ rl.on("line",function(l){
 	    switch (cmdArray[0]){
 	    case "join":
 		channel = cmdArray[1]
+		message.channel = channel
 		channels[channel] = {}
 		channels[channel].status = "JOINING"
 		message.data = "JOIN"
 		client.state = protocol.stateEnum.JOINING_CHANNEL
-		connection.write(eclib.weakCipher(new Buffer(JSON.stringify(message)),client.sharedSecret.slice(0,32)))
+		var encryptedData = eclib.weakCipher(JSON.stringify(message),client.sharedSecret.slice(0,32))
+		console.log(encryptedData)
+		
+		connection.write(encryptedData)
+		break;
+	    case "say":
+		message.channel = channel
+		//message.data = eclib.weakCipher(cmdArray.slice(1,cmdArray.length).join(" "),channels[channel].secret)
+		var encryptedData = eclib.weakCipher(JSON.stringify(message),client.sharedSecret.slice(0,32))
+
+		console.log(encryptedData)
+		connection.write(encryptedData)
 	    }
 	}
     }
