@@ -15,7 +15,7 @@ var connection = net.connect({port : 1366})
 var channels = {}
 var channel = "";
 connection.on("data",function(d){
-    switch(client.state){
+    switch(client.state)æ{
     case protocol.stateEnum.KEY_EXCHANGE:
 	
 	client.serverPublicKey = d
@@ -50,10 +50,18 @@ connection.on("data",function(d){
     }
 })
 
+function join(channel,channels){
+    var message = {}
+    channels[channel] = {}
+    message.channel = channel
+    return channel
+        
+}
 var rl = readline.createInterface({
     input : process.stdin,
     output : process.stdout
 })
+
 
 rl.on("line",function(l){
     if( client.state == protocol.stateEnum.READY){
@@ -63,12 +71,10 @@ rl.on("line",function(l){
 	    cmdArray[0] = cmdArray[0].slice(1,cmdArray[0].length)
 	    switch (cmdArray[0]){
 	    case "join":
-		channel = cmdArray[1]
-		message.channel = channel
-		channels[channel] = {}
-		channels[channel].status = "JOINING"
-		message.data = "JOIN"
+		join(cmdArray[1],channels)
+		
 		client.state = protocol.stateEnum.JOINING_CHANNEL
+		
 		var encryptedData = eclib.weakCipher(JSON.stringify(message),client.sharedSecret.slice(0,32))
 		console.log(encryptedData)
 		

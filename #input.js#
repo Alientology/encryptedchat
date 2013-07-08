@@ -1,0 +1,19 @@
+var util      = require("util")
+var events    = require("events")
+
+var readline = require("readline")
+Parser = function(){
+    
+    events.EventEmitter.call(this)
+        
+}
+util.inherits(Parser,events.EventEmitter)
+var rl = readline.createInterface(process.stdin, process.stdout)
+
+rl.on("line",function(l){
+    var parser = new Parser()
+        
+})
+
+
+
